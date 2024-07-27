@@ -61,6 +61,10 @@ Card :: struct {
     suit    : CardSuit,
     value   : CardValue,
     state   : CardState,
+    pos     : rl.Vector2,
+    v_pos   : rl.Vector2,
+    t       : f32,
+    tint    : rl.Color,
 }
 
 Button :: struct {
@@ -124,6 +128,7 @@ make_card :: proc(id: u32) -> Card {
             suit    = .NONE,
             value   = .JOKER,
             state   = .NORMAL,
+            tint    = rl.WHITE,
         }
     } else {
         return Card{
@@ -131,6 +136,7 @@ make_card :: proc(id: u32) -> Card {
             suit    = CardSuit(id/13 + 1),
             value   = CardValue(id%13 + 1),
             state   = .NORMAL,
+            tint    = rl.WHITE,
         }
     }
 }
@@ -159,6 +165,11 @@ make_card_deck :: proc(deck: ^[dynamic]Card) {
         append(deck, make_card(id))
     }
     rand.shuffle(deck[:])
+
+    for &card in deck {
+        card.pos.x = cw*.7
+        card.pos.y = ch*.7
+    }
 }
 
 add_distinct_memory :: proc(memory: ^[dynamic]u32, data: u32) {
@@ -271,7 +282,14 @@ restart_game :: proc(using game: ^Game) {
     clear(&deck)
 
     make_card_deck(&deck)
+    for &card, i in game.deck {
+        card.pos.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
+        card.pos.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
+    }
 }
+
+cw :: f32(CARD_WIDTH) * .8
+ch :: f32(CARD_HEIGHT) * .8
 
 main :: proc()
 {
@@ -308,8 +326,6 @@ main :: proc()
         event.mouse_pos = rl.GetMousePosition()
         game.dt = rl.GetFrameTime()
 
-        cw :: f32(CARD_WIDTH) * .8
-        ch :: f32(CARD_HEIGHT) * .8
         sw := f32(rl.GetScreenWidth())
         sh := f32(rl.GetScreenHeight())
 
@@ -321,6 +337,49 @@ main :: proc()
                     game.state = .LOOSE
                 } else {
                     game.state = .DRAW
+                }
+            }
+        }
+
+        for &card, i in game.deck {
+            //animate position
+            if card.pos != card.v_pos && card.t < 1 {
+                card.v_pos += card.t*(card.pos - card.v_pos);
+                card.t += game.dt;
+            } else {
+                card.t = 0
+            }
+
+            if card.state == .COLLECTED {
+                continue
+            }
+            origin := rl.Vector2{cw*0.5, ch*0.5}
+            rect := rl.Rectangle{card.pos.x, card.pos.y, cw, ch}
+            rect.x -= origin.x
+            rect.y -= origin.y
+
+            if game.state == .GAMEPLAY &&  game.turn_state == .PLAYER {
+                id := GuiId(uintptr(&card))
+                update_control(&event, id, rect)
+
+                if event.hover_id == id {
+                    card.tint = {255, 250, 150, 255}
+                } else {
+                    card.tint = rl.WHITE
+                }
+                if event.focus_id == id {
+                    #partial switch game.player_state {
+                    case .FIRST_CARD:
+                        game.first_id = u32(i)
+                        game.player_state = .SECOND_CARD
+                    case .SECOND_CARD:
+                        if u32(i) != game.first_id {
+                            game.second_id = u32(i)
+                            game.check_timer = 0
+                            game.player_state = .CHECK_CARD
+                        }
+                    }
+                    card.state = .SHOW
                 }
             }
         }
@@ -363,6 +422,7 @@ main :: proc()
 
                             game.first_id = rand_id
                             game.deck[game.first_id].state = .SELECTED
+                            game.deck[game.first_id].tint = {100, 100, 200, 255}
                             game.player_state = .SECOND_CARD
                             game.ai_timer = 0
                         }
@@ -381,6 +441,7 @@ main :: proc()
                             }
                             game.second_id = id
                             game.deck[game.second_id].state = .SELECTED
+                            game.deck[game.second_id].tint = {100, 100, 200, 255}
                             game.check_timer = 0
                             game.player_state = .CHECK_CARD
                             game.ai_timer = 0
@@ -391,61 +452,32 @@ main :: proc()
             }
         }
 
+        {// game drawing stuff
         rl.BeginDrawing();
         rl.ClearBackground({36, 100, 50, 255})
         origin := rl.Vector2{cw*0.5, ch*0.5}
-        for &card, i in game.deck {
+        for card in game.deck {
             if card.state == .COLLECTED {
                 continue
             }
-            x := cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
-            y := ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
             src := rl.Rectangle{
                 card_subtexture[card.id].x * CARD_WIDTH,
                 card_subtexture[card.id].y * CARD_HEIGHT,
                 CARD_WIDTH, CARD_HEIGHT
             }
-            rect := rl.Rectangle{x, y, cw, ch}
-            corrected_rect := rect
-            corrected_rect.x -= origin.x
-            corrected_rect.y -= origin.y
-            tint := rl.WHITE
-
-            if game.state == .GAMEPLAY &&  game.turn_state == .PLAYER {
-                id := GuiId(uintptr(&card))
-                update_control(&event, id, corrected_rect)
-
-                if event.hover_id == id {
-                    tint = {255, 250, 150, 255}
-                }
-                if event.focus_id == id {
-                    #partial switch game.player_state {
-                    case .FIRST_CARD:
-                        game.first_id = u32(i)
-                        game.player_state = .SECOND_CARD
-                    case .SECOND_CARD:
-                        if u32(i) != game.first_id {
-                            game.second_id = u32(i)
-                            game.check_timer = 0
-                            game.player_state = .CHECK_CARD
-                        }
-                    }
-                    card.state = .SHOW
-                }
-            }
+            rect := rl.Rectangle{card.v_pos.x, card.v_pos.y, cw, ch}
 
             #partial switch card.state {
             case .SHOW:
-                rl.DrawTexturePro(card_texture, src, rect, origin, 0, tint)
+                rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             case .SELECTED:
                 src.x = 0*src.width
                 src.y = 3*src.height
-                tint = {100, 100, 200, 255}
-                rl.DrawTexturePro(cardback_texture, src, rect, origin, 0, tint)
+                rl.DrawTexturePro(cardback_texture, src, rect, origin, 0, card.tint)
             case .NORMAL:
                 src.x = 0*src.width
                 src.y = 3*src.height
-                rl.DrawTexturePro(cardback_texture, src, rect, origin, 0, tint)
+                rl.DrawTexturePro(cardback_texture, src, rect, origin, 0, card.tint)
             }
         }
 
@@ -501,6 +533,11 @@ main :: proc()
                 update_button(&start_button, &event)
                 if start_button.clicked {
                     game.state = .GAMEPLAY
+
+                    for &card, i in game.deck {
+                        card.pos.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
+                        card.pos.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
+                    }
                 }
             case .GAMEPLAY:
                 rl.DrawText(rl.TextFormat("Turn : %s", game.turn_state), i32(sw*.6), 20, 28, rl.WHITE)
@@ -535,6 +572,7 @@ main :: proc()
 
         rl.DrawFPS(10, 10);
         rl.EndDrawing();
+        }
 
         {// end input handling
             if !event.updated_focus {
