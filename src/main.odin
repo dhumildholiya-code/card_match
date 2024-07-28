@@ -166,9 +166,12 @@ make_card_deck :: proc(deck: ^[dynamic]Card) {
     }
     rand.shuffle(deck[:])
 
+    sh := f32(rl.GetScreenHeight())
+    sw := f32(rl.GetScreenWidth())
     for &card in deck {
-        card.pos.x = cw*.7
-        card.pos.y = ch*.7
+        card.pos.x = sw*.4
+        card.pos.y = sh*.5
+        card.v_pos = card.pos
     }
 }
 
@@ -307,6 +310,8 @@ restart_game :: proc(using game: ^Game) {
     state = .GAMEPLAY
     turn_state = .PLAYER
     player_state = .FIRST_CARD
+    player_point = 0
+    ai_point = 0
     clear(&player_card)
     clear(&opponent_card)
     clear(&ai_memory)
