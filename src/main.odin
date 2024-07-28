@@ -53,7 +53,7 @@ CardState :: enum {
     NORMAL,
     SHOW,
     SELECTED,
-    COLLECTED
+    COLLECTED,
 }
 
 Card :: struct {
@@ -169,6 +169,37 @@ make_card_deck :: proc(deck: ^[dynamic]Card) {
     for &card in deck {
         card.pos.x = cw*.7
         card.pos.y = ch*.7
+    }
+}
+
+collect_card :: proc(using game: ^Game) {
+    deck[first_id].state = .COLLECTED
+    deck[second_id].state = .COLLECTED
+    deck[first_id].tint = rl.WHITE
+    deck[second_id].tint = rl.WHITE
+
+    switch game.turn_state {
+    case .PLAYER:
+        append(&player_card, first_id)
+        game.player_point += card_value(deck[first_id])
+    case .AI:
+        append(&opponent_card, first_id)
+        game.ai_point += card_value(deck[first_id])
+    }
+
+    //update collected card position
+    x := f32(GRID_WIDTH*cw) + cw*1.5
+    sh := f32(rl.GetScreenHeight())
+    for card_id, i in game.player_card {
+        card := &game.deck[card_id]
+        card.pos.x = x + cw*.3 * f32(i)
+        card.pos.y = sh - ch*1.2
+    }
+
+    for card_id, i in game.opponent_card {
+        card := &game.deck[card_id]
+        card.pos.x = x + cw*.3 * f32(i)
+        card.pos.y = ch*1.2
     }
 }
 
@@ -389,14 +420,7 @@ main :: proc()
             if game.check_timer > .5 {
                 if game.deck[game.first_id].value == game.deck[game.second_id].value &&
                 game.deck[game.first_id].suit == game.deck[game.second_id].suit {
-                    game.deck[game.first_id].state = .COLLECTED
-                    game.deck[game.second_id].state = .COLLECTED
-                    switch game.turn_state {
-                        case .PLAYER:
-                            append(&game.player_card, game.first_id)
-                        case .AI:
-                            append(&game.opponent_card, game.first_id)
-                    }
+                    collect_card(&game)
                 } else {
                     game.deck[game.first_id].state = .NORMAL
                     game.deck[game.second_id].state = .NORMAL
@@ -481,48 +505,37 @@ main :: proc()
             }
         }
 
-        if game.state != .MENU {// Draw Player Cards and Points
+        if game.state != .MENU {// Draw Points
             FONT_SIZE :: 30
             x := f32(GRID_WIDTH*cw) + cw*1.5
-            point_x := i32(x)
             y := sh - ch*1.2
-            game.player_point = 0
             for card_id in game.player_card {
                 card := game.deck[card_id]
-                x += cw*.3;
-                game.player_point += card_value(card)
                 src := rl.Rectangle{
                     card_subtexture[card.id].x * CARD_WIDTH,
                     card_subtexture[card.id].y * CARD_HEIGHT,
                     CARD_WIDTH, CARD_HEIGHT
                 }
-                rect := rl.Rectangle{x, y, cw, ch}
-                tint := rl.WHITE
-
-                rl.DrawTexturePro(card_texture, src, rect, origin, 0, tint)
+                rect := rl.Rectangle{card.v_pos.x, card.v_pos.y, cw, ch}
+                rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
             rl.DrawText(rl.TextFormat("Player : %d", game.player_point),
-                        i32(point_x), i32(y-ch*.8), FONT_SIZE, rl.WHITE)
+                        i32(x), i32(y-ch*.8), FONT_SIZE, rl.WHITE)
 
-            game.ai_point = 0
             x = f32(GRID_WIDTH*cw) + cw*1.5
             y = ch*1.2
             for card_id in game.opponent_card {
                 card := game.deck[card_id]
-                game.ai_point += card_value(card)
-                x += cw*.3
                 src := rl.Rectangle{
                     card_subtexture[card.id].x * CARD_WIDTH,
                     card_subtexture[card.id].y * CARD_HEIGHT,
                     CARD_WIDTH, CARD_HEIGHT
                 }
-                rect := rl.Rectangle{x, y, cw, ch}
-                tint := rl.WHITE
-
-                rl.DrawTexturePro(card_texture, src, rect, origin, 0, tint)
+                rect := rl.Rectangle{card.v_pos.x, card.v_pos.y, cw, ch}
+                rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
             rl.DrawText(rl.TextFormat("Opponent : %d", game.ai_point),
-                        i32(point_x), i32(y+ch*.6), FONT_SIZE, rl.WHITE)
+                        i32(x), i32(y+ch*.6), FONT_SIZE, rl.WHITE)
         }
 
         switch game.state {
