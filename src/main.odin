@@ -301,9 +301,12 @@ update_button :: proc(using button: ^Button, event: ^EventSystem) {
     }
 
     rl.DrawRectanglePro(rect, origin, 0, color)
-    x := i32(corrected_rect.x + rect.width*.15)
-    y := i32(corrected_rect.y + rect.height*.3)
-    rl.DrawText(rl.TextFormat("%s", text), x, y, 24, rl.WHITE)
+    FONT_SIZE :: 24
+    c_text := rl.TextFormat("%s", text)
+    text_width := f32(rl.MeasureText(c_text, FONT_SIZE))
+    x := i32(corrected_rect.x + rect.width*.5 - text_width*.5)
+    y := i32(corrected_rect.y + rect.height*.5 - f32(FONT_SIZE)*.4)
+    rl.DrawText(c_text, x, y, FONT_SIZE, rl.WHITE)
 }
 
 restart_game :: proc(using game: ^Game) {
@@ -512,8 +515,12 @@ main :: proc()
 
         if game.state != .MENU {// Draw Points
             FONT_SIZE :: 30
-            x := f32(GRID_WIDTH*cw) + cw*1.5
-            y := sh - ch*1.2
+            bg_rect: rl.Rectangle
+            bg_rect.width = 500
+            bg_rect.height = ch + 80
+            bg_rect.x = f32(GRID_WIDTH*cw + cw*.7)
+            bg_rect.y = f32(sh*.5 + ch*.3)
+            rl.DrawRectangleRec(bg_rect, {30, 30, 30, 100})
             for card_id in game.player_card {
                 card := game.deck[card_id]
                 src := rl.Rectangle{
@@ -525,10 +532,11 @@ main :: proc()
                 rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
             rl.DrawText(rl.TextFormat("Player : %d", game.player_point),
-                        i32(x), i32(y-ch*.8), FONT_SIZE, rl.WHITE)
+                        i32(bg_rect.x+20), i32(bg_rect.y+15),
+                        FONT_SIZE, rl.WHITE)
 
-            x = f32(GRID_WIDTH*cw) + cw*1.5
-            y = ch*1.2
+            bg_rect.y = f32(sh*.5 - ch*.3 - bg_rect.height)
+            rl.DrawRectangleRec(bg_rect, {30, 30, 30, 100})
             for card_id in game.opponent_card {
                 card := game.deck[card_id]
                 src := rl.Rectangle{
@@ -540,7 +548,8 @@ main :: proc()
                 rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
             rl.DrawText(rl.TextFormat("Opponent : %d", game.ai_point),
-                        i32(x), i32(y+ch*.6), FONT_SIZE, rl.WHITE)
+                        i32(bg_rect.x+20), i32(bg_rect.y+bg_rect.height-FONT_SIZE-10),
+                        FONT_SIZE, rl.WHITE)
         }
 
         switch game.state {
