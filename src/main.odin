@@ -13,6 +13,7 @@ CARD_HEIGHT :: 190
 MAX_CARDS   :: 53
 GRID_WIDTH  :: 6
 GRID_HEIGHT :: 4
+DECK_SIZE   :: GRID_WIDTH * GRID_HEIGHT
 
 card_subtexture: [MAX_CARDS]rl.Vector2 = {
     {0,3}, {1,2}, {1,1}, {1,0}, {0,9}, {0,8}, {0,7}, {0,6}, {0,5}, {0,4}, {0,2}, {0,0}, {0,1},
@@ -62,9 +63,17 @@ Card :: struct {
     value   : CardValue,
     state   : CardState,
     pos     : rl.Vector2,
-    v_pos   : rl.Vector2,
-    t       : f32,
     tint    : rl.Color,
+    tween   : Tween,
+}
+
+Tween :: struct {
+    start_pos   : rl.Vector2,
+    end_pos     : rl.Vector2,
+    time        : f32,
+    duration    : f32,
+    elapsed     : f32,
+    running     : bool,
 }
 
 Button :: struct {
@@ -107,7 +116,7 @@ Game :: struct {
     state           : GameState,
     player_state    : PlayerState,
     turn_state      : TurnState,
-    deck            : [dynamic]Card,
+    deck            : []Card,
     player_card     : [dynamic]u32,
     opponent_card   : [dynamic]u32,
     player_point    : int,
@@ -151,18 +160,21 @@ card_value :: proc(card: Card) -> int {
     }
 }
 
-make_card_deck :: proc(deck: ^[dynamic]Card) {
+make_card_deck :: proc(deck: ^[]Card) {
     n := (GRID_WIDTH * GRID_HEIGHT) / 2
-    all_cards := make([dynamic]u32, context.temp_allocator)
+    all_cards := make([]u32, MAX_CARDS, context.temp_allocator)
     for i in 0..<MAX_CARDS {
-        append(&all_cards, u32(i))
+        all_cards[i] = u32(i)
     }
     rand.shuffle(all_cards[:])
 
+    j := 0
     for i in 0..<n {
         id := all_cards[i]
-        append(deck, make_card(id))
-        append(deck, make_card(id))
+        deck[j] = make_card(id)
+        j+=1
+        deck[j] = make_card(id)
+        j+=1
     }
     rand.shuffle(deck[:])
 
@@ -171,7 +183,6 @@ make_card_deck :: proc(deck: ^[dynamic]Card) {
     for &card in deck {
         card.pos.x = sw*.4
         card.pos.y = sh*.5
-        card.v_pos = card.pos
     }
 }
 
@@ -194,16 +205,26 @@ collect_card :: proc(using game: ^Game) {
     x := f32(GRID_WIDTH*cw) + cw*1.5
     sh := f32(rl.GetScreenHeight())
     for card_id, i in game.player_card {
-        card := &game.deck[card_id]
-        card.pos.x = x + cw*.3 * f32(i)
-        card.pos.y = sh - ch*1.2
+        target: rl.Vector2
+        target.x = x + cw*.3 * f32(i)
+        target.y = sh - ch*1.2
+        set_tween(&game.deck[card_id], target, .2, f32(rl.GetTime()))
     }
 
     for card_id, i in game.opponent_card {
-        card := &game.deck[card_id]
-        card.pos.x = x + cw*.3 * f32(i)
-        card.pos.y = ch*1.2
+        target: rl.Vector2
+        target.x = x + cw*.3 * f32(i)
+        target.y = ch*1.2
+        set_tween(&game.deck[card_id], target, .2, f32(rl.GetTime()))
     }
+}
+
+set_tween :: proc(card: ^Card, end_pos: rl.Vector2, duration: f32, start_time: f32) {
+    card.tween.start_pos = card.pos
+    card.tween.end_pos = end_pos
+    card.tween.duration = duration
+    card.tween.time = start_time
+    card.tween.running = true
 }
 
 add_distinct_memory :: proc(memory: ^[dynamic]u32, data: u32) {
@@ -224,7 +245,7 @@ remove_memory :: proc(memory: ^[dynamic]u32, data: u32) {
     }
 }
 
-check_memory :: proc(memory: ^[dynamic]u32, deck: ^[dynamic]Card, check_id: u32) -> (id: u32, matched: bool) {
+check_memory :: proc(memory: ^[dynamic]u32, deck: ^[]Card, check_id: u32) -> (id: u32, matched: bool) {
     for data, i in memory {
         if data == check_id {
             continue
@@ -318,12 +339,13 @@ restart_game :: proc(using game: ^Game) {
     clear(&player_card)
     clear(&opponent_card)
     clear(&ai_memory)
-    clear(&deck)
 
     make_card_deck(&deck)
     for &card, i in game.deck {
-        card.pos.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
-        card.pos.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
+        target: rl.Vector2
+        target.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
+        target.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
+        set_tween(&card, target, .2, f32(rl.GetTime()))
     }
 }
 
@@ -346,7 +368,7 @@ main :: proc()
     game.state = .MENU
     game.turn_state = .PLAYER
     game.player_state = .FIRST_CARD
-    game.deck = make([dynamic]Card); make_card_deck(&game.deck);
+    game.deck = make([]Card, DECK_SIZE); make_card_deck(&game.deck);
     game.player_card = make([dynamic]u32)
     game.opponent_card = make([dynamic]u32)
     game.ai_memory = make([dynamic]u32)
@@ -364,6 +386,7 @@ main :: proc()
 
         event.mouse_pos = rl.GetMousePosition()
         game.dt = rl.GetFrameTime()
+        time := f32(rl.GetTime())
 
         sw := f32(rl.GetScreenWidth())
         sh := f32(rl.GetScreenHeight())
@@ -381,12 +404,16 @@ main :: proc()
         }
 
         for &card, i in game.deck {
-            //animate position
-            if card.pos != card.v_pos && card.t < 1 {
-                card.v_pos += card.t*(card.pos - card.v_pos);
-                card.t += game.dt;
-            } else {
-                card.t = 0
+            // card tween logic
+            if card.tween.running && card.tween.time <= time {
+                card.tween.elapsed = time - card.tween.time
+                t := card.tween.elapsed / card.tween.duration
+                if t <= 1 {
+                    card.pos = card.tween.start_pos + t*(card.tween.end_pos - card.tween.start_pos);
+                } else {
+                    card.pos = card.tween.end_pos;
+                    card.tween.running = false
+                }
             }
 
             if card.state == .COLLECTED {
@@ -497,7 +524,7 @@ main :: proc()
                 card_subtexture[card.id].y * CARD_HEIGHT,
                 CARD_WIDTH, CARD_HEIGHT
             }
-            rect := rl.Rectangle{card.v_pos.x, card.v_pos.y, cw, ch}
+            rect := rl.Rectangle{card.pos.x, card.pos.y, cw, ch}
 
             #partial switch card.state {
             case .SHOW:
@@ -528,7 +555,7 @@ main :: proc()
                     card_subtexture[card.id].y * CARD_HEIGHT,
                     CARD_WIDTH, CARD_HEIGHT
                 }
-                rect := rl.Rectangle{card.v_pos.x, card.v_pos.y, cw, ch}
+                rect := rl.Rectangle{card.pos.x, card.pos.y, cw, ch}
                 rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
             rl.DrawText(rl.TextFormat("Player : %d", game.player_point),
@@ -544,7 +571,7 @@ main :: proc()
                     card_subtexture[card.id].y * CARD_HEIGHT,
                     CARD_WIDTH, CARD_HEIGHT
                 }
-                rect := rl.Rectangle{card.v_pos.x, card.v_pos.y, cw, ch}
+                rect := rl.Rectangle{card.pos.x, card.pos.y, cw, ch}
                 rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
             rl.DrawText(rl.TextFormat("Opponent : %d", game.ai_point),
@@ -562,8 +589,10 @@ main :: proc()
                     game.state = .GAMEPLAY
 
                     for &card, i in game.deck {
-                        card.pos.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
-                        card.pos.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
+                        target: rl.Vector2
+                        target.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
+                        target.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
+                        set_tween(&card, target, .2, f32(rl.GetTime()))
                     }
                 }
             case .GAMEPLAY:
