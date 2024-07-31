@@ -74,6 +74,7 @@ Tween :: struct {
     duration    : f32,
     elapsed     : f32,
     running     : bool,
+    started     : bool,
 }
 
 Button :: struct {
@@ -225,6 +226,7 @@ set_tween :: proc(card: ^Card, end_pos: rl.Vector2, duration: f32, start_time: f
     card.tween.duration = duration
     card.tween.time = start_time
     card.tween.running = true
+    card.tween.started = false
 }
 
 add_distinct_memory :: proc(memory: ^[dynamic]u32, data: u32) {
@@ -345,7 +347,7 @@ restart_game :: proc(using game: ^Game) {
         target: rl.Vector2
         target.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
         target.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
-        set_tween(&card, target, .2, f32(rl.GetTime()))
+        set_tween(&card, target, .2, f32(rl.GetTime()) + f32(i)*.05)
     }
 }
 
@@ -357,11 +359,17 @@ main :: proc()
     rl.SetTraceLogLevel(.ERROR)
     rl.InitWindow(WIDTH, HEIGHT, "Game")
     defer rl.CloseWindow()
+    rl.InitAudioDevice()
+    defer rl.CloseAudioDevice()
 
     card_texture := rl.LoadTexture("data/playingCards.png")
     defer rl.UnloadTexture(card_texture)
     cardback_texture := rl.LoadTexture("data/playingCardBacks.png")
     defer rl.UnloadTexture(cardback_texture)
+    card_place_sound := rl.LoadSound("data/card-place-2.wav")
+    defer rl.UnloadSound(card_place_sound)
+    card_flip_sound := rl.LoadSound("data/card-place-1.wav")
+    defer rl.UnloadSound(card_flip_sound)
 
     n := (GRID_WIDTH * GRID_HEIGHT) / 2
     game: Game
@@ -404,15 +412,20 @@ main :: proc()
         }
 
         for &card, i in game.deck {
-            // card tween logic
-            if card.tween.running && card.tween.time <= time {
-                card.tween.elapsed = time - card.tween.time
-                t := card.tween.elapsed / card.tween.duration
-                if t <= 1 {
-                    card.pos = card.tween.start_pos + t*(card.tween.end_pos - card.tween.start_pos);
-                } else {
-                    card.pos = card.tween.end_pos;
-                    card.tween.running = false
+            { // card tween logic
+                if card.tween.running && card.tween.time <= time {
+                    card.tween.elapsed = time - card.tween.time
+                    t := card.tween.elapsed / card.tween.duration
+                    if !card.tween.started {
+                        card.tween.started = true
+                        rl.PlaySound(card_place_sound)
+                    }
+                    if t <= 1 {
+                        card.pos = card.tween.start_pos + t*(card.tween.end_pos - card.tween.start_pos);
+                    } else {
+                        card.pos = card.tween.end_pos;
+                        card.tween.running = false
+                    }
                 }
             }
 
@@ -438,11 +451,13 @@ main :: proc()
                     case .FIRST_CARD:
                         game.first_id = u32(i)
                         game.player_state = .SECOND_CARD
+                        rl.PlaySound(card_flip_sound)
                     case .SECOND_CARD:
                         if u32(i) != game.first_id {
                             game.second_id = u32(i)
                             game.check_timer = 0
                             game.player_state = .CHECK_CARD
+                            rl.PlaySound(card_flip_sound)
                         }
                     }
                     card.state = .SHOW
@@ -484,6 +499,7 @@ main :: proc()
                             game.deck[game.first_id].tint = {100, 100, 200, 255}
                             game.player_state = .SECOND_CARD
                             game.ai_timer = 0
+                            rl.PlaySound(card_flip_sound)
                         }
                     } else {
                         game.ai_timer += game.dt
@@ -504,6 +520,7 @@ main :: proc()
                             game.check_timer = 0
                             game.player_state = .CHECK_CARD
                             game.ai_timer = 0
+                            rl.PlaySound(card_flip_sound)
                         }
                     } else {
                         game.ai_timer += game.dt
@@ -592,7 +609,7 @@ main :: proc()
                         target: rl.Vector2
                         target.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
                         target.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
-                        set_tween(&card, target, .2, f32(rl.GetTime()))
+                        set_tween(&card, target, .2, time + f32(i)*.05)
                     }
                 }
             case .GAMEPLAY:
