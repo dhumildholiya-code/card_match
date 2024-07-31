@@ -366,10 +366,13 @@ main :: proc()
     defer rl.UnloadTexture(card_texture)
     cardback_texture := rl.LoadTexture("data/playingCardBacks.png")
     defer rl.UnloadTexture(cardback_texture)
+    //setup sounds
     card_place_sound := rl.LoadSound("data/card-place-2.wav")
     defer rl.UnloadSound(card_place_sound)
     card_flip_sound := rl.LoadSound("data/card-place-1.wav")
     defer rl.UnloadSound(card_flip_sound)
+    rl.SetSoundVolume(card_place_sound, .8)
+    rl.SetSoundVolume(card_flip_sound, .8)
 
     n := (GRID_WIDTH * GRID_HEIGHT) / 2
     game: Game
@@ -418,7 +421,10 @@ main :: proc()
                     t := card.tween.elapsed / card.tween.duration
                     if !card.tween.started {
                         card.tween.started = true
-                        rl.PlaySound(card_place_sound)
+                        if i & 1 == 1 {//NOTE: Play sound every other card
+                            rl.SetSoundPitch(card_place_sound, .5 + f32(i)*.02)
+                            rl.PlaySound(card_place_sound)
+                        }
                     }
                     if t <= 1 {
                         card.pos = card.tween.start_pos + t*(card.tween.end_pos - card.tween.start_pos);
@@ -451,12 +457,14 @@ main :: proc()
                     case .FIRST_CARD:
                         game.first_id = u32(i)
                         game.player_state = .SECOND_CARD
+                        rl.SetSoundPitch(card_flip_sound, rand.float32_range(.7,1.1))
                         rl.PlaySound(card_flip_sound)
                     case .SECOND_CARD:
                         if u32(i) != game.first_id {
                             game.second_id = u32(i)
                             game.check_timer = 0
                             game.player_state = .CHECK_CARD
+                            rl.SetSoundPitch(card_flip_sound, rand.float32_range(.7,1.1))
                             rl.PlaySound(card_flip_sound)
                         }
                     }
@@ -499,6 +507,7 @@ main :: proc()
                             game.deck[game.first_id].tint = {100, 100, 200, 255}
                             game.player_state = .SECOND_CARD
                             game.ai_timer = 0
+                            rl.SetSoundPitch(card_flip_sound, rand.float32_range(.7,1.1))
                             rl.PlaySound(card_flip_sound)
                         }
                     } else {
@@ -520,6 +529,7 @@ main :: proc()
                             game.check_timer = 0
                             game.player_state = .CHECK_CARD
                             game.ai_timer = 0
+                            rl.SetSoundPitch(card_flip_sound, rand.float32_range(.7,1.1))
                             rl.PlaySound(card_flip_sound)
                         }
                     } else {
