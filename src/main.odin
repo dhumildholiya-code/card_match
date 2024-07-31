@@ -209,14 +209,14 @@ collect_card :: proc(using game: ^Game) {
         target: rl.Vector2
         target.x = x + cw*.3 * f32(i)
         target.y = sh - ch*1.2
-        set_tween(&game.deck[card_id], target, .2, f32(rl.GetTime()))
+        set_tween(&game.deck[card_id], target, .3, f32(rl.GetTime()))
     }
 
     for card_id, i in game.opponent_card {
         target: rl.Vector2
         target.x = x + cw*.3 * f32(i)
         target.y = ch*1.2
-        set_tween(&game.deck[card_id], target, .2, f32(rl.GetTime()))
+        set_tween(&game.deck[card_id], target, .3, f32(rl.GetTime()))
     }
 }
 
@@ -564,7 +564,7 @@ main :: proc()
             bg_rect.height = ch + 80
             bg_rect.x = f32(GRID_WIDTH*cw + cw*.7)
             bg_rect.y = f32(sh*.5 + ch*.3)
-            rl.DrawRectangleRec(bg_rect, {30, 30, 30, 100})
+            rl.DrawRectangleRec(bg_rect, {30, 30, 30, 70})
             for card_id in game.player_card {
                 card := game.deck[card_id]
                 src := rl.Rectangle{
@@ -580,7 +580,7 @@ main :: proc()
                         FONT_SIZE, rl.WHITE)
 
             bg_rect.y = f32(sh*.5 - ch*.3 - bg_rect.height)
-            rl.DrawRectangleRec(bg_rect, {30, 30, 30, 100})
+            rl.DrawRectangleRec(bg_rect, {30, 30, 30, 70})
             for card_id in game.opponent_card {
                 card := game.deck[card_id]
                 src := rl.Rectangle{
@@ -613,7 +613,7 @@ main :: proc()
                     }
                 }
             case .GAMEPLAY:
-                rl.DrawText(rl.TextFormat("Turn : %s", game.turn_state), i32(sw*.6), 20, 28, rl.WHITE)
+                rl.DrawText(rl.TextFormat("Turn : %s", game.turn_state), i32(sw*.6), 35, 28, rl.WHITE)
             case .WIN:
                 rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
                 color := rl.Color{36, 125, 50, 255}
