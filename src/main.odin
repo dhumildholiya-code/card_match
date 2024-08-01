@@ -77,6 +77,13 @@ Tween :: struct {
     started     : bool,
 }
 
+TweenInt :: struct {
+    value       : ^int,
+    end_value   : int,
+    timer       : f32,
+    running     : bool,
+}
+
 Button :: struct {
     id      : GuiId,
     rect    : rl.Rectangle,
@@ -122,6 +129,7 @@ Game :: struct {
     opponent_card   : [dynamic]u32,
     player_point    : int,
     ai_point        : int,
+    point_tween     : TweenInt,
     ai_memory       : [dynamic]u32,
 
     dt              : f32,
@@ -202,13 +210,15 @@ collect_card :: proc(using game: ^Game) {
     deck[first_id].tint = rl.WHITE
     deck[second_id].tint = rl.WHITE
 
-    switch game.turn_state {
+    switch turn_state {
     case .PLAYER:
         append(&player_card, first_id)
-        game.player_point += card_value(deck[first_id])
+        point := player_point + card_value(deck[first_id])
+        set_point_tween(game, &player_point, point)
     case .AI:
         append(&opponent_card, first_id)
-        game.ai_point += card_value(deck[first_id])
+        point := ai_point + card_value(deck[first_id])
+        set_point_tween(game, &ai_point, point)
     }
 
     //update collected card position
@@ -236,6 +246,13 @@ set_tween :: proc(card: ^Card, end_pos: rl.Vector2, duration: f32, start_time: f
     card.tween.time = start_time
     card.tween.running = true
     card.tween.started = false
+}
+
+set_point_tween :: proc(using game: ^Game, value: ^int, end_value: int) {
+    point_tween.value = value
+    point_tween.end_value = end_value
+    point_tween.timer = 0
+    point_tween.running = true
 }
 
 add_distinct_memory :: proc(memory: ^[dynamic]u32, data: u32) {
@@ -346,6 +363,7 @@ restart_game :: proc(using game: ^Game) {
     turn_state = .PLAYER
     player_state = .FIRST_CARD
     player_point = 0
+    point_tween.running = false
     ai_point = 0
     clear(&player_card)
     clear(&opponent_card)
@@ -401,10 +419,6 @@ main :: proc()
     sw := f32(rl.GetScreenWidth())
     sh := f32(rl.GetScreenHeight())
 
-    //verlet integration
-    point := Point{{sw*.5, 100}, {sw*.5, 100}}
-    gravity := rl.Vector2{0,900}
-
     event: EventSystem
 
     for !rl.WindowShouldClose()
@@ -418,27 +432,6 @@ main :: proc()
         sw = f32(rl.GetScreenWidth())
         sh = f32(rl.GetScreenHeight())
 
-        { // Verlet point simulate
-            a := gravity
-            vel := point.pos - point.old_pos
-            point.old_pos = point.pos
-            point.pos += vel + a*game.dt*game.dt
-
-            // constraints
-            vel = point.pos - point.old_pos
-            if point.pos.y > sh*.8 {
-                point.pos.y = sh*.8
-                point.old_pos.y = point.pos.y + vel.y
-            }
-            if point.pos.x < 0 {
-                point.pos.x = 0
-                point.old_pos.x = point.pos.x + vel.x
-            } else if point.pos.x > sw*.7 {
-                point.pos.x = sw*.7
-                point.old_pos.x = point.pos.x + vel.x
-            }
-        }
-
         if game.state == .GAMEPLAY {
             if len(game.player_card) + len(game.opponent_card) == n {
                 if game.player_point > game.ai_point {
@@ -448,6 +441,18 @@ main :: proc()
                 } else {
                     game.state = .DRAW
                 }
+            }
+        }
+        //update point tween
+        if game.point_tween.running {
+            if game.point_tween.value^ != game.point_tween.end_value {
+                game.point_tween.timer += game.dt
+                if game.point_tween.timer >= .05 {
+                    game.point_tween.value^ += 1
+                    game.point_tween.timer = 0
+                }
+            } else {
+                game.point_tween.running = false
             }
         }
 
@@ -578,9 +583,6 @@ main :: proc()
         {// game drawing stuff
         rl.BeginDrawing();
         rl.ClearBackground({36, 100, 50, 255})
-        {//Draw verlet points
-            rl.DrawCircle(i32(point.pos.x), i32(point.pos.y), 20, rl.WHITE)
-        }
         origin := rl.Vector2{cw*0.5, ch*0.5}
         for card in game.deck {
             if card.state == .COLLECTED {

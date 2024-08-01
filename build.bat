@@ -1,3 +1,3 @@
 @echo off
 
-odin run src -out:game.exe
+odin build src -out:game.exe
