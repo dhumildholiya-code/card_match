@@ -131,6 +131,15 @@ Game :: struct {
     second_id       : u32,
 }
 
+Point :: struct {
+    pos: rl.Vector2,
+    old_pos: rl.Vector2,
+}
+
+sign :: proc(x: f32) -> f32 {
+    if x >= 0 { return 1 } else {return -1}
+}
+
 make_card :: proc(id: u32) -> Card {
     if id == 52{
         return Card{
@@ -361,6 +370,7 @@ main :: proc()
     defer rl.CloseWindow()
     rl.InitAudioDevice()
     defer rl.CloseAudioDevice()
+    rl.SetTargetFPS(60)
 
     card_texture := rl.LoadTexture("data/playingCards.png")
     defer rl.UnloadTexture(card_texture)
@@ -388,9 +398,15 @@ main :: proc()
     defer delete(game.deck)
     defer delete(game.ai_memory)
 
+    sw := f32(rl.GetScreenWidth())
+    sh := f32(rl.GetScreenHeight())
+
+    //verlet integration
+    point := Point{{sw*.5, 100}, {sw*.5, 100}}
+    gravity := rl.Vector2{0,900}
+
     event: EventSystem
 
-    rl.SetTargetFPS(60)
     for !rl.WindowShouldClose()
     {
         free_all(context.temp_allocator)
@@ -399,8 +415,29 @@ main :: proc()
         game.dt = rl.GetFrameTime()
         time := f32(rl.GetTime())
 
-        sw := f32(rl.GetScreenWidth())
-        sh := f32(rl.GetScreenHeight())
+        sw = f32(rl.GetScreenWidth())
+        sh = f32(rl.GetScreenHeight())
+
+        { // Verlet point simulate
+            a := gravity
+            vel := point.pos - point.old_pos
+            point.old_pos = point.pos
+            point.pos += vel + a*game.dt*game.dt
+
+            // constraints
+            vel = point.pos - point.old_pos
+            if point.pos.y > sh*.8 {
+                point.pos.y = sh*.8
+                point.old_pos.y = point.pos.y + vel.y
+            }
+            if point.pos.x < 0 {
+                point.pos.x = 0
+                point.old_pos.x = point.pos.x + vel.x
+            } else if point.pos.x > sw*.7 {
+                point.pos.x = sw*.7
+                point.old_pos.x = point.pos.x + vel.x
+            }
+        }
 
         if game.state == .GAMEPLAY {
             if len(game.player_card) + len(game.opponent_card) == n {
@@ -541,6 +578,9 @@ main :: proc()
         {// game drawing stuff
         rl.BeginDrawing();
         rl.ClearBackground({36, 100, 50, 255})
+        {//Draw verlet points
+            rl.DrawCircle(i32(point.pos.x), i32(point.pos.y), 20, rl.WHITE)
+        }
         origin := rl.Vector2{cw*0.5, ch*0.5}
         for card in game.deck {
             if card.state == .COLLECTED {
