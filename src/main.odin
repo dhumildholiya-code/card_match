@@ -4,7 +4,6 @@ import "core:fmt"
 import rl "vendor:raylib"
 
 /* TODO(Dhumil):
--[] refactor state machine for game
 -[] better layout for main menu
 -[] add good win effect
     - cards fly to center and do sin wave movement
