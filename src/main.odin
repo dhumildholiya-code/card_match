@@ -77,9 +77,9 @@ Tween :: struct {
     started     : bool,
 }
 
-TweenInt :: struct {
-    value       : ^int,
-    end_value   : int,
+Score :: struct {
+    value       : int,
+    ui_value    : int,
     timer       : f32,
     running     : bool,
 }
@@ -127,9 +127,8 @@ Game :: struct {
     deck            : []Card,
     player_card     : [dynamic]u32,
     opponent_card   : [dynamic]u32,
-    player_point    : int,
-    ai_point        : int,
-    point_tween     : TweenInt,
+    player_score    : Score,
+    ai_score        : Score,
     ai_memory       : [dynamic]u32,
 
     dt              : f32,
@@ -213,12 +212,10 @@ collect_card :: proc(using game: ^Game) {
     switch turn_state {
     case .PLAYER:
         append(&player_card, first_id)
-        point := player_point + card_value(deck[first_id])
-        set_point_tween(game, &player_point, point)
+        add_score(&player_score, card_value(deck[first_id]))
     case .AI:
         append(&opponent_card, first_id)
-        point := ai_point + card_value(deck[first_id])
-        set_point_tween(game, &ai_point, point)
+        add_score(&ai_score, card_value(deck[first_id]))
     }
 
     //update collected card position
@@ -248,11 +245,10 @@ set_tween :: proc(card: ^Card, end_pos: rl.Vector2, duration: f32, start_time: f
     card.tween.started = false
 }
 
-set_point_tween :: proc(using game: ^Game, value: ^int, end_value: int) {
-    point_tween.value = value
-    point_tween.end_value = end_value
-    point_tween.timer = 0
-    point_tween.running = true
+add_score :: proc(using score: ^Score, new_value: int) {
+    value += new_value
+    timer = 0
+    running = true
 }
 
 add_distinct_memory :: proc(memory: ^[dynamic]u32, data: u32) {
@@ -358,13 +354,26 @@ update_button :: proc(using button: ^Button, event: ^EventSystem) {
     rl.DrawText(c_text, x, y, FONT_SIZE, rl.WHITE)
 }
 
+update_score :: proc(using score: ^Score, dt: f32) {
+    if running {
+        if value != ui_value {
+            timer += dt
+            if timer >= .05 {
+                ui_value += 1
+                timer = 0
+            }
+        } else {
+            running = false
+        }
+    }
+}
+
 restart_game :: proc(using game: ^Game) {
     state = .GAMEPLAY
     turn_state = .PLAYER
     player_state = .FIRST_CARD
-    player_point = 0
-    point_tween.running = false
-    ai_point = 0
+    player_score = {0,0,0,false}
+    ai_score = {0,0,0,false}
     clear(&player_card)
     clear(&opponent_card)
     clear(&ai_memory)
@@ -407,6 +416,8 @@ main :: proc()
     game.state = .MENU
     game.turn_state = .PLAYER
     game.player_state = .FIRST_CARD
+    game.player_score = {0,0,0,false}
+    game.ai_score = {0,0,0,false}
     game.deck = make([]Card, DECK_SIZE); make_card_deck(&game.deck);
     game.player_card = make([dynamic]u32)
     game.opponent_card = make([dynamic]u32)
@@ -434,27 +445,18 @@ main :: proc()
 
         if game.state == .GAMEPLAY {
             if len(game.player_card) + len(game.opponent_card) == n {
-                if game.player_point > game.ai_point {
+                if game.player_score.value > game.ai_score.value {
                     game.state = .WIN
-                } else if game.player_point < game.ai_point {
+                } else if game.player_score.value < game.ai_score.value {
                     game.state = .LOOSE
                 } else {
                     game.state = .DRAW
                 }
             }
         }
-        //update point tween
-        if game.point_tween.running {
-            if game.point_tween.value^ != game.point_tween.end_value {
-                game.point_tween.timer += game.dt
-                if game.point_tween.timer >= .05 {
-                    game.point_tween.value^ += 1
-                    game.point_tween.timer = 0
-                }
-            } else {
-                game.point_tween.running = false
-            }
-        }
+
+        update_score(&game.player_score, game.dt)
+        update_score(&game.ai_score, game.dt)
 
         for &card, i in game.deck {
             { // card tween logic
@@ -627,7 +629,7 @@ main :: proc()
                 rect := rl.Rectangle{card.pos.x, card.pos.y, cw, ch}
                 rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
-            rl.DrawText(rl.TextFormat("Player : %d", game.player_point),
+            rl.DrawText(rl.TextFormat("Player : %d", game.player_score.ui_value),
                         i32(bg_rect.x+20), i32(bg_rect.y+15),
                         FONT_SIZE, rl.WHITE)
 
@@ -643,7 +645,7 @@ main :: proc()
                 rect := rl.Rectangle{card.pos.x, card.pos.y, cw, ch}
                 rl.DrawTexturePro(card_texture, src, rect, origin, 0, card.tint)
             }
-            rl.DrawText(rl.TextFormat("Opponent : %d", game.ai_point),
+            rl.DrawText(rl.TextFormat("Opponent : %d", game.ai_score.ui_value),
                         i32(bg_rect.x+20), i32(bg_rect.y+bg_rect.height-FONT_SIZE-10),
                         FONT_SIZE, rl.WHITE)
         }
