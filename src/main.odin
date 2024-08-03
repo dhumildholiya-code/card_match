@@ -5,14 +5,13 @@ import "core:math"
 import rl "vendor:raylib"
 
 /* TODO(Dhumil):
--[] setup scaling independent of resolution
 -[] juice up the hover, focus and select effect
 -[] better color for ui_buttons
 -[] add button ui sounds
 */
 
-WIDTH       :: 1280
-HEIGHT      :: 720
+WIDTH       :: 1920
+HEIGHT      :: 1080
 CARD_WIDTH  :: 140
 CARD_HEIGHT :: 190
 MAX_CARDS   :: 53
@@ -37,8 +36,8 @@ Asset :: struct {
     card_flip_sound : rl.Sound,
 }
 
-cw :: f32(CARD_WIDTH) * .8
-ch :: f32(CARD_HEIGHT) * .8
+cw :: f32(CARD_WIDTH)*1.25
+ch :: f32(CARD_HEIGHT)*1.25
 
 load_assets :: proc(using assets: ^Asset) {
     //Load Texturess
@@ -59,8 +58,8 @@ unload_assets :: proc(using assets: ^Asset) {
 }
 
 draw_table :: proc(using game: ^Game, using assets: ^Asset) {
-    sw := f32(rl.GetScreenWidth())
-    sh := f32(rl.GetScreenHeight())
+    sw := f32(WIDTH)
+    sh := f32(HEIGHT)
     origin := rl.Vector2{cw*0.5, ch*0.5}
     //Draw Cards
     for card in deck {
@@ -91,8 +90,8 @@ draw_table :: proc(using game: ^Game, using assets: ^Asset) {
     if state != .MENU && game.show_gameplay_ui {// Draw player and opponent
         FONT_SIZE :: 30
         bg_rect: rl.Rectangle
-        bg_rect.width = 500
-        bg_rect.height = ch + 80
+        bg_rect.width = 700
+        bg_rect.height = ch + 100
         bg_rect.x = f32(GRID_WIDTH*cw + cw*.7)
         bg_rect.y = f32(sh*.5 + ch*.3)
         rl.DrawRectangleRec(bg_rect, {30, 30, 30, 70})
@@ -131,11 +130,11 @@ draw_table :: proc(using game: ^Game, using assets: ^Asset) {
 main :: proc()
 {
     rl.SetTraceLogLevel(.ERROR)
-    rl.InitWindow(WIDTH, HEIGHT, "Game")
+    rl.SetConfigFlags({.VSYNC_HINT, .WINDOW_RESIZABLE})
+    rl.InitWindow(1280, 720, "Game")
     defer rl.CloseWindow()
     rl.InitAudioDevice()
     defer rl.CloseAudioDevice()
-    rl.SetTargetFPS(60)
 
     assets: Asset
     load_assets(&assets)
@@ -159,12 +158,40 @@ main :: proc()
     defer delete(game.ai_memory)
 
     event: EventSystem
+    render_texture := rl.LoadRenderTexture(WIDTH, HEIGHT)
+	defer rl.UnloadRenderTexture(render_texture)
 
+    rl.SetTargetFPS(60)
     for !rl.WindowShouldClose()
     {
         free_all(context.temp_allocator)
 
-        event.mouse_pos = rl.GetMousePosition()
+        { // scale mouse position
+            w := f32(WIDTH)
+            h := f32(HEIGHT)
+
+            sw := f32(max(rl.GetScreenWidth(), 1))
+            sh := f32(max(rl.GetScreenHeight(), 1))
+
+            mouse_pos := rl.GetMousePosition()
+            mouse_pos.x /= sw
+            mouse_pos.y /= sh
+
+            scale := min(sw/w, sh/h)
+
+            mouse_pos.x -= 0.5
+            mouse_pos.y -= 0.5
+            mouse_pos.x *= sw/(scale*w)
+            mouse_pos.y *= sh/(scale*h)
+            mouse_pos.x += 0.5
+            mouse_pos.y += 0.5
+
+            mouse_pos.x *= w
+            mouse_pos.y *= h
+
+            event.mouse_pos = mouse_pos
+        }
+
         game.dt = rl.GetFrameTime()
         time := f32(rl.GetTime())
 
@@ -227,12 +254,12 @@ main :: proc()
         }
 
         {// game drawing stuff
-        rl.BeginDrawing();
+        rl.BeginTextureMode(render_texture);
         rl.ClearBackground({36, 100, 50, 255})
         draw_table(&game, &assets)
 
-        sw := f32(rl.GetScreenWidth())
-        sh := f32(rl.GetScreenHeight())
+        sw := f32(WIDTH)
+        sh := f32(HEIGHT)
         x_left := GRID_WIDTH*cw
         switch game.state { // Draw UI
             case .MENU:
@@ -282,8 +309,37 @@ main :: proc()
                 }
                 rl.DrawText("Match Draw", i32(sw*.4), 20, 28, rl.WHITE)
         }
+        rl.EndTextureMode()
 
-        rl.DrawFPS(10, 10);
+        rl.BeginDrawing();
+        rl.ClearBackground({0,0,0,0})
+        {
+			w := f32(WIDTH)
+			h := f32(HEIGHT)
+			source := rl.Rectangle{0, 0, w, h}
+			dst := source
+
+			sw := f32(rl.GetScreenWidth())
+			sh := f32(rl.GetScreenHeight())
+			scale := min(sw/w, sh/h)
+			dst.width  = scale * f32(dst.width)
+			dst.height = scale * f32(dst.height)
+
+			dst.x = (sw - dst.width)  * 0.5
+			dst.y = (sh - dst.height) * 0.5
+
+
+			source.height = -source.height
+			rl.DrawTexturePro(
+				texture  = render_texture.texture,
+				source   = source,
+				dest     = dst,
+				origin   = {0, 0},
+				rotation = 0,
+				tint     = rl.WHITE,
+			)
+		}
+        rl.DrawFPS(2, 2);
         rl.EndDrawing();
         }
 

@@ -94,8 +94,8 @@ make_card_deck :: proc(deck: ^[]Card) {
     }
     rand.shuffle(deck[:])
 
-    sh := f32(rl.GetScreenHeight())
-    sw := f32(rl.GetScreenWidth())
+    sh := f32(HEIGHT)
+    sw := f32(WIDTH)
     x := GRID_WIDTH*cw
     for &card in deck {
         card.pos.x = x + (sw-x)*.3
@@ -120,7 +120,7 @@ collect_card :: proc(using game: ^Game) {
 
     //update collected card position
     x := f32(GRID_WIDTH*cw) + cw*1.5
-    sh := f32(rl.GetScreenHeight())
+    sh := f32(HEIGHT)
     for card_id, i in game.player_card {
         target: rl.Vector2
         target.x = x + cw*.3 * f32(i)
@@ -160,7 +160,7 @@ update_cards :: proc(using game: ^Game, using assets: ^Asset, time: f32) {
 
 set_card_win_pos :: proc(deck: ^[]Card, cards: ^[dynamic]u32) {
     x :: f32(GRID_WIDTH*cw)
-    sh := f32(rl.GetScreenHeight())
+    sh := f32(HEIGHT)
     w := x*.8
     space := w/f32(len(cards))
     for card_id, i in cards {
@@ -172,7 +172,7 @@ set_card_win_pos :: proc(deck: ^[]Card, cards: ^[dynamic]u32) {
 }
 
 card_win_effect :: proc(deck: ^[]Card, cards: ^[dynamic]u32, speed: f32) {
-    sh := f32(rl.GetScreenHeight())
+    sh := f32(HEIGHT)
     for card_id, i in cards {
         card := &deck[card_id]
         card.pos.y = 100*math.sin(f32(rl.GetTime())*speed + f32(i)*.3) + sh*.5
