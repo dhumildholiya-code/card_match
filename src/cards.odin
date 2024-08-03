@@ -1,6 +1,7 @@
 package game
 
 import "core:math/rand"
+import "core:math"
 import rl "vendor:raylib"
 
 CardSuit :: enum {
@@ -95,9 +96,10 @@ make_card_deck :: proc(deck: ^[]Card) {
 
     sh := f32(rl.GetScreenHeight())
     sw := f32(rl.GetScreenWidth())
+    x := GRID_WIDTH*cw
     for &card in deck {
-        card.pos.x = sw*.4
-        card.pos.y = sh*.5
+        card.pos.x = x + (sw-x)*.3
+        card.pos.y = sh*.4
     }
 }
 
@@ -136,24 +138,43 @@ collect_card :: proc(using game: ^Game) {
 
 update_cards :: proc(using game: ^Game, using assets: ^Asset, time: f32) {
     for &card, i in deck {
-        { // card tween logic
-            if card.tween.running && card.tween.time <= time {
-                card.tween.elapsed = time - card.tween.time
-                t := card.tween.elapsed / card.tween.duration
-                if !card.tween.started {
-                    card.tween.started = true
-                    if i & 1 == 1 {//NOTE: Play sound every other card
-                        rl.SetSoundPitch(card_place_sound, .5 + f32(i)*.02)
-                        rl.PlaySound(card_place_sound)
-                    }
-                }
-                if t <= 1 {
-                    card.pos = card.tween.start_pos + t*(card.tween.end_pos - card.tween.start_pos);
-                } else {
-                    card.pos = card.tween.end_pos;
-                    card.tween.running = false
+        if card.tween.running && card.tween.time <= time {
+            card.tween.elapsed = time - card.tween.time
+            t := card.tween.elapsed / card.tween.duration
+            if !card.tween.started {
+                card.tween.started = true
+                if i & 1 == 1 { //NOTE(Dhumil): Play sound every other card
+                    rl.SetSoundPitch(card_place_sound, .5 + f32(i)*.02)
+                    rl.PlaySound(card_place_sound)
                 }
             }
+            if t <= 1 {
+                card.pos = card.tween.start_pos + t*(card.tween.end_pos - card.tween.start_pos);
+            } else {
+                card.pos = card.tween.end_pos;
+                card.tween.running = false
+            }
         }
+    }
+}
+
+set_card_win_pos :: proc(deck: ^[]Card, cards: ^[dynamic]u32) {
+    x :: f32(GRID_WIDTH*cw)
+    sh := f32(rl.GetScreenHeight())
+    w := x*.8
+    space := w/f32(len(cards))
+    for card_id, i in cards {
+        target: rl.Vector2
+        target.x = x*.2 + space * f32(i)
+        target.y = sh*.5
+        set_tween(&deck[card_id], target, .5, f32(rl.GetTime()))
+    }
+}
+
+card_win_effect :: proc(deck: ^[]Card, cards: ^[dynamic]u32, speed: f32) {
+    sh := f32(rl.GetScreenHeight())
+    for card_id, i in cards {
+        card := &deck[card_id]
+        card.pos.y = 100*math.sin(f32(rl.GetTime())*speed + f32(i)*.3) + sh*.5
     }
 }

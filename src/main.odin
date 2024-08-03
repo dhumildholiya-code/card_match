@@ -1,12 +1,10 @@
 package game
 
 import "core:fmt"
+import "core:math"
 import rl "vendor:raylib"
 
 /* TODO(Dhumil):
--[] better layout for main menu
--[] add good win effect
-    - cards fly to center and do sin wave movement
 -[] setup scaling independent of resolution
 -[] juice up the hover, focus and select effect
 -[] better color for ui_buttons
@@ -90,7 +88,7 @@ draw_table :: proc(using game: ^Game, using assets: ^Asset) {
         }
     }
 
-    if state != .MENU {// Draw player and opponent
+    if state != .MENU && game.show_gameplay_ui {// Draw player and opponent
         FONT_SIZE :: 30
         bg_rect: rl.Rectangle
         bg_rect.width = 500
@@ -147,6 +145,7 @@ main :: proc()
     game: Game
     game.state = .MENU
     game.turn_state = .PLAYER
+    game.show_gameplay_ui = false
     game.player_state = .FIRST_CARD
     game.player_score = {0,0,0,false}
     game.ai_score = {0,0,0,false}
@@ -173,16 +172,25 @@ main :: proc()
         update_score(&game.ai_score, game.dt)
         update_cards(&game, &assets, time)
 
-        if game.state == .GAMEPLAY {
+        #partial switch game.state {
+        case .GAMEPLAY:
             { //check win/loose condition
                 if len(game.player_card) + len(game.opponent_card) == n {
                     if game.player_score.value > game.ai_score.value {
                         game.state = .WIN
+                        set_card_win_pos(&game.deck, &game.player_card)
                     } else if game.player_score.value < game.ai_score.value {
                         game.state = .LOOSE
+                        set_card_win_pos(&game.deck, &game.opponent_card)
                     } else {
                         game.state = .DRAW
                     }
+                }
+            }
+
+            if !game.show_gameplay_ui {
+                if time - game.game_start_time >= 1.4 {
+                    game.show_gameplay_ui = true
                 }
             }
 
@@ -195,7 +203,7 @@ main :: proc()
 
             if game.player_state == .CHECK_CARD {
                 game.check_timer += game.dt
-                if game.check_timer > .5 {
+                if game.check_timer > .4 {
                     if game.deck[game.first_id].value == game.deck[game.second_id].value &&
                     game.deck[game.first_id].suit == game.deck[game.second_id].suit {
                         collect_card(&game)
@@ -212,6 +220,10 @@ main :: proc()
                     game.player_state = .FIRST_CARD
                 }
             }
+        case .WIN:
+            card_win_effect(&game.deck, &game.player_card, 3)
+        case .LOOSE:
+            card_win_effect(&game.deck, &game.opponent_card, 3)
         }
 
         {// game drawing stuff
@@ -221,15 +233,16 @@ main :: proc()
 
         sw := f32(rl.GetScreenWidth())
         sh := f32(rl.GetScreenHeight())
+        x_left := GRID_WIDTH*cw
         switch game.state { // Draw UI
             case .MENU:
-                rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
+                rect := rl.Rectangle{x_left + (sw-x_left)*.31, sh*.6, 200, 50}
                 color := rl.Color{36, 125, 50, 255}
                 start_button := create_button(1, rect, color, "Start Game")
                 update_button(&start_button, &event)
                 if start_button.clicked {
                     game.state = .GAMEPLAY
-
+                    game.game_start_time = time
                     for &card, i in game.deck {
                         target: rl.Vector2
                         target.x = cw*.7 + f32(i%GRID_WIDTH) * cw*1.05
@@ -238,7 +251,9 @@ main :: proc()
                     }
                 }
             case .GAMEPLAY:
-                rl.DrawText(rl.TextFormat("Turn : %s", game.turn_state), i32(sw*.6), 35, 28, rl.WHITE)
+                if game.show_gameplay_ui {
+                    rl.DrawText(rl.TextFormat("Turn : %s", game.turn_state), i32(sw*.6), 35, 28, rl.WHITE)
+                }
             case .WIN:
                 rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
                 color := rl.Color{36, 125, 50, 255}

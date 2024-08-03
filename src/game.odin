@@ -60,6 +60,8 @@ Game :: struct {
     state           : GameState,
     player_state    : PlayerState,
     turn_state      : TurnState,
+    show_gameplay_ui: bool,
+    game_start_time : f32,
     deck            : []Card,
     player_card     : [dynamic]u32,
     opponent_card   : [dynamic]u32,
@@ -212,6 +214,8 @@ restart_game :: proc(using game: ^Game) {
     player_state = .FIRST_CARD
     player_score = {0,0,0,false}
     ai_score = {0,0,0,false}
+    show_gameplay_ui = false
+    game_start_time = f32(rl.GetTime())
     clear(&player_card)
     clear(&opponent_card)
     clear(&ai_memory)
