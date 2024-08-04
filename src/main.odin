@@ -5,6 +5,10 @@ import "core:math"
 import rl "vendor:raylib"
 
 /* TODO(Dhumil):
+-[] difficuly : two modes
+    - one where you can see ai cards and one where you cant
+-[] score : two modes
+    - score based on points / pair
 -[] juice up the hover, focus and select effect
 -[] better color for ui_buttons
 -[] add button ui sounds
@@ -66,7 +70,7 @@ draw_table :: proc(using game: ^Game, using assets: ^Asset) {
         if card.state == .COLLECTED {
             continue
         }
-        src := rl.Rectangle{
+        src := rl.Rectangle {
             card_subtexture[card.id].x * CARD_WIDTH,
             card_subtexture[card.id].y * CARD_HEIGHT,
             CARD_WIDTH, CARD_HEIGHT

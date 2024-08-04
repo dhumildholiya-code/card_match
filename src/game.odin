@@ -229,7 +229,6 @@ restart_game :: proc(using game: ^Game) {
     }
 }
 
-
 player_input :: proc(using game: ^Game, event: ^EventSystem, using assets: ^Asset) {
     for &card, i in deck {
         if card.state == .COLLECTED { continue }
