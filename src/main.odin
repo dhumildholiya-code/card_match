@@ -293,7 +293,7 @@ main :: proc()
                 if restart_button.clicked {
                     restart_game(&game);
                 }
-                rl.DrawText("You Won!", i32(sw*.4), 20, 28, rl.WHITE)
+                rl.DrawText("You Won!", i32(x_left*.45), 130, 58, rl.WHITE)
             case .LOOSE:
                 rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
                 color := rl.Color{36, 125, 50, 255}
@@ -302,7 +302,7 @@ main :: proc()
                 if restart_button.clicked {
                     restart_game(&game);
                 }
-                rl.DrawText("You Loose!", i32(sw*.4), 20, 28, rl.WHITE)
+                rl.DrawText("You Loose!", i32(x_left*.45), 130, 58, rl.WHITE)
             case .DRAW:
                 rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
                 color := rl.Color{36, 125, 50, 255}
