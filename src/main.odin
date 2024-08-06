@@ -5,8 +5,6 @@ import "core:math"
 import rl "vendor:raylib"
 
 /* TODO(Dhumil):
--[] difficuly : two modes
-    - one where you can see ai cards and one where you cant
 -[] score : two modes
     - score based on points / pair
 -[] juice up the hover, focus and select effect
@@ -148,6 +146,7 @@ main :: proc()
     game: Game
     game.state = .MENU
     game.turn_state = .PLAYER
+    game.mode = .NORMAL
     game.show_gameplay_ui = false
     game.player_state = .FIRST_CARD
     game.player_score = {0,0,0,false}
@@ -267,10 +266,17 @@ main :: proc()
         x_left := GRID_WIDTH*cw
         switch game.state { // Draw UI
             case .MENU:
-                rect := rl.Rectangle{x_left + (sw-x_left)*.31, sh*.6, 200, 50}
+                rect := rl.Rectangle{x_left + (sw-x_left)*.31, sh*.57, 200, 50}
                 color := rl.Color{36, 125, 50, 255}
-                start_button := create_button(1, rect, color, "Start Game")
+                btn_text := fmt.tprintf("%s", game.mode)
+                game_mode_btn := create_text_button(1, rect, rl.WHITE, btn_text)
+                rect.y += rect.height + 10
+                start_button := create_button(2, rect, color, "Start Game")
+                update_button(&game_mode_btn, &event)
                 update_button(&start_button, &event)
+                if game_mode_btn.clicked {
+                    game.mode = GameMode((int(game.mode) + 1) % 2)
+                }
                 if start_button.clicked {
                     game.state = .GAMEPLAY
                     game.game_start_time = time

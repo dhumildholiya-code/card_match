@@ -21,12 +21,13 @@ Score :: struct {
 }
 
 Button :: struct {
-    id      : GuiId,
-    rect    : rl.Rectangle,
-    origin  : rl.Vector2,
-    color   : rl.Color,
-    text    : string,
-    clicked : bool,
+    id          : GuiId,
+    rect        : rl.Rectangle,
+    origin      : rl.Vector2,
+    color       : rl.Color,
+    text        : string,
+    clicked     : bool,
+    text_button : bool,
 }
 
 EventSystem :: struct {
@@ -48,6 +49,11 @@ TurnState :: enum {
     AI
 }
 
+GameMode :: enum {
+    NORMAL,
+    HARD,
+}
+
 GameState :: enum {
     MENU,
     GAMEPLAY,
@@ -60,6 +66,7 @@ Game :: struct {
     state           : GameState,
     player_state    : PlayerState,
     turn_state      : TurnState,
+    mode            : GameMode,
     show_gameplay_ui: bool,
     game_start_time : f32,
     deck            : []Card,
@@ -164,6 +171,19 @@ create_button :: proc(id: GuiId, rect: rl.Rectangle, color: rl.Color, text: stri
         color   = color,
         text    = text,
         clicked = false,
+        text_button = false,
+    }
+}
+
+create_text_button :: proc(id: GuiId, rect: rl.Rectangle, color: rl.Color, text: string) -> Button {
+    return Button{
+        id      = id,
+        rect    = rect,
+        origin  = rl.Vector2{rect.width * .5, rect.height * .5},
+        color   = color,
+        text    = text,
+        clicked = false,
+        text_button = true,
     }
 }
 
@@ -185,13 +205,19 @@ update_button :: proc(using button: ^Button, event: ^EventSystem) {
         button.clicked = false
     }
 
-    rl.DrawRectanglePro(rect, origin, 0, color)
+    if !text_button {
+        rl.DrawRectanglePro(rect, origin, 0, color)
+    }
     FONT_SIZE :: 24
     c_text := rl.TextFormat("%s", text)
     text_width := f32(rl.MeasureText(c_text, FONT_SIZE))
     x := i32(corrected_rect.x + rect.width*.5 - text_width*.5)
     y := i32(corrected_rect.y + rect.height*.5 - f32(FONT_SIZE)*.4)
-    rl.DrawText(c_text, x, y, FONT_SIZE, rl.WHITE)
+    if text_button {
+        rl.DrawText(c_text, x, y, FONT_SIZE, color)
+    } else {
+        rl.DrawText(c_text, x, y, FONT_SIZE, rl.WHITE)
+    }
 }
 
 update_score :: proc(using score: ^Score, dt: f32) {
@@ -276,8 +302,13 @@ ai_update :: proc(using game: ^Game, using assets: ^Asset) {
                 add_distinct_memory(&ai_memory, rand_id)
 
                 first_id = rand_id
-                deck[first_id].state = .SELECTED
-                deck[first_id].tint = {100, 100, 200, 255}
+                switch mode {
+                case .NORMAL:
+                    deck[first_id].state = .SHOW
+                case .HARD:
+                    deck[first_id].state = .SELECTED
+                    deck[first_id].tint = {100, 100, 200, 255}
+                }
                 player_state = .SECOND_CARD
                 ai_timer = 0
                 rl.SetSoundPitch(card_flip_sound, rand.float32_range(.7,1.1))
