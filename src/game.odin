@@ -328,8 +328,13 @@ ai_update :: proc(using game: ^Game, using assets: ^Asset) {
                     add_distinct_memory(&ai_memory, id)
                 }
                 second_id = id
-                deck[second_id].state = .SELECTED
-                deck[second_id].tint = {100, 100, 200, 255}
+                switch mode {
+                case .NORMAL:
+                    deck[second_id].state = .SHOW
+                case .HARD:
+                    deck[second_id].state = .SELECTED
+                    deck[second_id].tint = {100, 100, 200, 255}
+                }
                 check_timer = 0
                 player_state = .CHECK_CARD
                 ai_timer = 0

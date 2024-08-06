@@ -143,10 +143,8 @@ update_cards :: proc(using game: ^Game, using assets: ^Asset, time: f32) {
             t := card.tween.elapsed / card.tween.duration
             if !card.tween.started {
                 card.tween.started = true
-                if i & 1 == 1 { //NOTE(Dhumil): Play sound every other card
-                    rl.SetSoundPitch(card_place_sound, .5 + f32(i)*.02)
-                    rl.PlaySound(card_place_sound)
-                }
+                rl.SetSoundPitch(card_place_sound, .5 + f32(i)*.02)
+                rl.PlaySound(card_place_sound)
             }
             if t <= 1 {
                 card.pos = card.tween.start_pos + t*(card.tween.end_pos - card.tween.start_pos);
