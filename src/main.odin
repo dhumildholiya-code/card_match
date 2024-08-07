@@ -266,7 +266,7 @@ main :: proc()
         x_left := GRID_WIDTH*cw
         switch game.state { // Draw UI
             case .MENU:
-                rect := rl.Rectangle{x_left + (sw-x_left)*.31, sh*.57, 200, 50}
+                rect := rl.Rectangle{x_left + (sw-x_left)*.31, sh*.57, 200, 70}
                 color := rl.Color{36, 125, 50, 255}
                 btn_text := fmt.tprintf("%s", game.mode)
                 game_mode_btn := create_text_button(1, rect, rl.WHITE, btn_text)
@@ -292,30 +292,48 @@ main :: proc()
                     rl.DrawText(rl.TextFormat("Turn : %s", game.turn_state), i32(sw*.6), 35, 28, rl.WHITE)
                 }
             case .WIN:
-                rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
+                rect := rl.Rectangle{sw*.7, sh*.5, 200, 70}
                 color := rl.Color{36, 125, 50, 255}
                 restart_button := create_button(1, rect, color, "Restart")
+                rect.x += rect.width + 50
+                menu_btn := create_button(2, rect, color, "Menu")
                 update_button(&restart_button, &event)
+                update_button(&menu_btn, &event)
                 if restart_button.clicked {
                     restart_game(&game);
+                }
+                if menu_btn.clicked {
+                    goto_menu(&game)
                 }
                 rl.DrawText("You Won!", i32(x_left*.45), 130, 58, rl.WHITE)
             case .LOOSE:
-                rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
+                rect := rl.Rectangle{sw*.7, sh*.5, 200, 70}
                 color := rl.Color{36, 125, 50, 255}
                 restart_button := create_button(1, rect, color, "Restart")
+                rect.x += rect.width + 50
+                menu_btn := create_button(2, rect, color, "Menu")
                 update_button(&restart_button, &event)
+                update_button(&menu_btn, &event)
                 if restart_button.clicked {
                     restart_game(&game);
                 }
+                if menu_btn.clicked {
+                    goto_menu(&game)
+                }
                 rl.DrawText("You Loose!", i32(x_left*.45), 130, 58, rl.WHITE)
             case .DRAW:
-                rect := rl.Rectangle{sw*.7, sh*.5, 200, 50}
+                rect := rl.Rectangle{sw*.7, sh*.5, 200, 70}
                 color := rl.Color{36, 125, 50, 255}
                 restart_button := create_button(1, rect, color, "Restart")
+                rect.x += rect.width + 50
+                menu_btn := create_button(2, rect, color, "Menu")
                 update_button(&restart_button, &event)
+                update_button(&menu_btn, &event)
                 if restart_button.clicked {
                     restart_game(&game);
+                }
+                if menu_btn.clicked {
+                    goto_menu(&game)
                 }
                 rl.DrawText("Match Draw", i32(sw*.4), 20, 28, rl.WHITE)
         }

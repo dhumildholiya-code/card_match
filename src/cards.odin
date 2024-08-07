@@ -139,8 +139,8 @@ collect_card :: proc(using game: ^Game) {
 update_cards :: proc(using game: ^Game, using assets: ^Asset, time: f32) {
     for &card, i in deck {
         if card.tween.running && card.tween.time <= time {
-            card.tween.elapsed = time - card.tween.time
-            t := card.tween.elapsed / card.tween.duration
+            elapsed := time - card.tween.time
+            t := elapsed / card.tween.duration
             if !card.tween.started {
                 card.tween.started = true
                 rl.SetSoundPitch(card_place_sound, .5 + f32(i)*.02)

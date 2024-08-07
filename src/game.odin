@@ -8,7 +8,6 @@ Tween :: struct {
     end_pos     : rl.Vector2,
     time        : f32,
     duration    : f32,
-    elapsed     : f32,
     running     : bool,
     started     : bool,
 }
@@ -208,11 +207,11 @@ update_button :: proc(using button: ^Button, event: ^EventSystem) {
     if !text_button {
         rl.DrawRectanglePro(rect, origin, 0, color)
     }
-    FONT_SIZE :: 24
+    FONT_SIZE :: 28
     c_text := rl.TextFormat("%s", text)
     text_width := f32(rl.MeasureText(c_text, FONT_SIZE))
     x := i32(corrected_rect.x + rect.width*.5 - text_width*.5)
-    y := i32(corrected_rect.y + rect.height*.5 - f32(FONT_SIZE)*.4)
+    y := i32(corrected_rect.y + rect.height*.5 - f32(FONT_SIZE)*.75)
     if text_button {
         rl.DrawText(c_text, x, y, FONT_SIZE, color)
     } else {
@@ -253,6 +252,21 @@ restart_game :: proc(using game: ^Game) {
         target.y = ch*.7 + f32(i/GRID_WIDTH) * ch*1.05
         set_tween(&card, target, .2, f32(rl.GetTime()) + f32(i)*.05)
     }
+}
+
+goto_menu :: proc(using game: ^Game) {
+    state = .MENU
+    turn_state = .PLAYER
+    player_state = .FIRST_CARD
+    player_score = {0,0,0,false}
+    ai_score = {0,0,0,false}
+    show_gameplay_ui = false
+    game_start_time = f32(rl.GetTime())
+    clear(&player_card)
+    clear(&opponent_card)
+    clear(&ai_memory)
+
+    make_card_deck(&deck)
 }
 
 player_input :: proc(using game: ^Game, event: ^EventSystem, using assets: ^Asset) {
